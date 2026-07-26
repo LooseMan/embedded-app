@@ -67,5 +67,9 @@ else
         -p 8000:8000 \
 		--network "$CONTAINER_NETWORK" \
 		-e DATABASE_URL="postgresql+asyncpg://user:password@${DB_CONTAINER}:5432/dbname" \
-		-d fastapi-app
+		-v ${SCRIPT_DIR}:/workspace:Z \
+		-d fastapi-dev
 fi
+
+# Run tests in the FastAPI container
+# $ docker exec -it my-fastapi pytest

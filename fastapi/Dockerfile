@@ -1,31 +1,43 @@
-# pythonの公式イメージはdebian系である
-# 本リポジトリはredhat系をベースにしたいため、
-# almalinuxに必要なパッケージを追加する
-FROM almalinux:9
+# ==============================================================================
+# 1. BASE STAGE
+# ==============================================================================
+# ADR: Pythonの公式イメージはDebian系であるため、Red Hat系をベースにしたいという
+# 要件に基づきAlmaLinuxを選択。OS更新（dnf update）はイメージ肥大化とビルド遅延、
+# 破壊を防ぐため実施せず、公式イメージの定期更新に依存する。
+FROM almalinux:10 AS base
 
-# 以下の理由からOS更新は実施しない
-# 1. イメージのサイズが肥大化する
-# 2. ビルドが遅くなり、壊れる原因になる
-# 3. 公式イメージはすでに定期更新されている
-# RUN dnf -y update
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# パッケージインストール（ドキュメント・キャッシュを除外）
-# alma9標準のpythonはv3.9で古いため、別途v3.12（alma10の標準）をインストールする
-RUN dnf -y install --nodocs \
-        python3.12 \
-        python3.12-pip && \
-    dnf clean all && \
-    rm -rf /var/cache/dnf
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_SYSTEM_PYTHON=1
 
-# 作業ディレクトリ
 WORKDIR /workspace
 
-# 依存関係のインストール（ビルドの高速化のため、コードより先にインストール）
+# ADR: AlmaLinux 10に内蔵されているOS標準のPython 3.12環境をそのまま利用し、
+# パッケージマネージャー（dnf）による追加インストールを排除してビルドを高速化する。
 COPY requirements.txt .
-RUN pip3.12 install --no-cache-dir -r requirements.txt
+RUN uv pip install --no-cache -r requirements.txt
 
-# アプリケーションコード（appフォルダ）のみをコンテナ内にコピー
+# ==============================================================================
+# 2. DEVELOPMENT STAGE
+#    - コマンド: docker build --target dev -t fastapi-dev .
+# ==============================================================================
+FROM base AS dev
+
+RUN uv pip install --no-cache pytest httpx pytest-asyncio
+
+# ADR: コードはイメージに同梱せず、ホストからマウントして利用する。
+# これにより、コード変更時のイメージ再ビルドを回避し、開発効率を向上させる。
+
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# ==============================================================================
+# 3. PRODUCTION STAGE
+#    - コマンド: docker build -t fastapi-prod .
+# ==============================================================================
+FROM base AS prod
+
 COPY app ./app
 
-# コンテナ起動時に FastAPI サーバーを自動起動
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
