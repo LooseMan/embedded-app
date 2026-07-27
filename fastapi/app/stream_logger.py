@@ -1,34 +1,34 @@
+import os
 import logging
+import sys
 
-# ログの基本設定
+# 環境変数からログレベルを取得（デフォルト: INFO）
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+# ログ出力例：
+# 2026-07-27 01:42:02,015 [INFO] service.py:13 calc_add() start.
+# 2026-07-27 01:42:02,027 [INFO] service.py:16 calc_add() end.
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d %(message)s"
+    level=getattr(logging, log_level, logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d %(funcName)s() %(message)s",
+    # デフォルトは標準エラー出力に出力、container用に標準出力を出力先に設定
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
 
-from functools import wraps
+# 汎用ヘルパー関数（stacklevel=2 で呼び出し元を記録）
 
-def log_function(func):
-    """関数の開始・終了を自動ログ出力するデコレータ"""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        # func.__name__ で実行中の関数名を自動取得
-        func_name = func.__name__
-        
-        logger.info(f"{func_name}() start.")
-        try:
-            result = func(*args, **kwargs)
-            logger.info(f"{func_name}() end.")
-            return result
-        except Exception as e:
-            logger.error(f"{func_name}() error.")
-            raise
-    return wrapper
+# ログ出力
+def info_log(msg: str):
+    logger.info(msg, stacklevel=2)
 
-# @log_function
-# def hallo():
-#     logger.info("Hello from stream_logger.py")
-#     raise Exception("This is a test exception in hallo()")
+# デバッグログ出力
+# デフォルト非表示、動作確認時に環境変数（ログレベル）を変更して表示する運用を想定
+def debug_log(msg: str):
+    logger.debug(msg, stacklevel=2)
 
-# hallo()
+# エラーログ出力
+# 本関数はexceptブロック内で使用すること
+# （ログ出力後、自動でスタックトレースが出ます）
+def error_log(msg: str):
+    logger.error(msg, stacklevel=2, exc_info=True)

@@ -12,7 +12,8 @@ DATABASE_URL = os.getenv(
 )
 
 # 2. エンジンとセッションの作成
-engine = create_async_engine(DATABASE_URL, echo=True)
+# 以下でecho=Trueを指定すると、sqlalchemyのSQLログが出る
+engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 # 4. FastAPIで使う依存関係（セッションの自動管理）
