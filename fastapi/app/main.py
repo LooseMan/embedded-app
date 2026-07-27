@@ -1,52 +1,72 @@
-# FastAPIのエントリーポイント
+"""FastAPI application and HTTP endpoint definitions."""
 
-from fastapi import Depends, FastAPI
-from sqlalchemy.ext.asyncio import AsyncSession
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, FastAPI, Response, status
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.dependencies import engine, get_db
 from app.model import Base
 from app.schema import AddRequest, AddResponse
 from app.service import calc_add
-from app.dependencies import get_db, engine
 
-# 3. FastAPI起動時にテーブルを自動生成する設定 (Lifespan)
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # アプリ起動時にテーブルがなければ自動作成する
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    """Create application tables when the server starts."""
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
     yield
-    # アプリ終了時のクリーンアップ処理（必要あれば）
 
-app = FastAPI(lifespan=lifespan)
 
-# FastAPIであれば以下のデコレータでログ出力を共通化できます
-# @app.middleware("http")
-@app.post("/add", response_model=AddResponse)
-# Dependsを使って、get_db関数からセッションを取得する
-# 規定以外のパラメータは末尾に配置する必要があります
-async def add(
-    request: AddRequest,
-    db: AsyncSession = Depends(get_db)
-) -> AddResponse:
+app = FastAPI(
+    title="Embedded App API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+router = APIRouter()
+DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
+
+# OpenAPIの仕様書に表示しないようにする場合は、include_in_schema=Falseを指定します
+@router.get(
+    "/healthz",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+)
+async def liveness() -> Response:
+    """Return success when the API process is running."""
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@router.get(
+    "/readyz",
+    response_class=Response,
+    responses={status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Database unavailable"}},
+)
+async def readiness(db: DatabaseSession) -> Response:
+    """Return success only when the database accepts a query."""
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception:
+        return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@router.post(
+    "/add",
+    response_model=AddResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["calculation"],
+    summary="Add two integers",
+)
+async def add(request: AddRequest, db: DatabaseSession) -> AddResponse:
+    """Add two integers and record the request."""
     return await calc_add(request, db)
 
-# 非同期関数内でtime.sleep()を使うと、FastAPIの非同期処理がブロックされてしまうため、注意が必要です。
-@app.post("/bad_sleep", response_model=AddResponse)
-async def bad_sleep(
-    request: AddRequest,
-    db: AsyncSession = Depends(get_db)
-) -> AddResponse:
-    import time
-    time.sleep(5) # 5秒間スリープするだけの処理
-    return AddResponse(result=0)
 
-# 非同期関数内でasyncio.sleep()を使うと、FastAPIの非同期処理がブロックされないため、推奨されます。
-@app.post("/good_sleep", response_model=AddResponse)
-async def good_sleep(
-    request: AddRequest,
-    db: AsyncSession = Depends(get_db)
-) -> AddResponse:
-    import asyncio
-    await asyncio.sleep(5) # 5秒間スリープするだけの処理
-    return AddResponse(result=0)
+app.include_router(router)
