@@ -18,4 +18,4 @@ npm run dev
 - ファイル詳細パネルとダウンロード・ゴミ箱操作の導線
 - アップロードモーダル、ストレージ使用状況、レスポンシブレイアウト
 
-現在はバックエンド未起動でも画面確認できるよう、デモデータを表示しています。API接続を追加する場合は `app/page.tsx` の `files` データを `/files` と `/file-categories` の取得処理に置き換えてください。
+ファイル一覧は起動時に `GET /files`、カテゴリ名は `GET /file-categories` から取得します。開発時はNext.jsの同一オリジン `/api/*` rewrite経由でFastAPIへ転送するため、ブラウザのCORS設定に依存しません。APIの接続先を直接変更する場合は `NEXT_PUBLIC_API_BASE_URL` を指定できます。未設定時の転送先は `http://localhost:8000` です。

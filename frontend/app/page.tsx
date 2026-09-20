@@ -1,19 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type FileItem = { id: number; name: string; category: string; type: string; size: string; updated: string; color: string; favorite?: boolean };
+type FileItem = { id: number; name: string; url: string; category: string; type: string; size: string; updated: string; color: string; favorite?: boolean };
+type FileResponse = { id: number; category_id: number; url: string; size: number };
+type CategoryResponse = { id: number; name: string };
 
-const files: FileItem[] = [
-  { id: 1, name: "Brand guidelines.pdf", category: "Design", type: "PDF", size: "4.8 MB", updated: "2 hours ago", color: "red", favorite: true },
-  { id: 2, name: "Product roadmap 2024.fig", category: "Design", type: "FIG", size: "28.4 MB", updated: "Yesterday", color: "orange", favorite: true },
-  { id: 3, name: "Q3 financial report.xlsx", category: "Finance", type: "XLS", size: "1.2 MB", updated: "Sep 24, 2024", color: "green" },
-  { id: 4, name: "Homepage wireframes.fig", category: "Design", type: "FIG", size: "8.7 MB", updated: "Sep 23, 2024", color: "orange" },
-  { id: 5, name: "Onboarding flow.mp4", category: "Marketing", type: "MP4", size: "42.1 MB", updated: "Sep 21, 2024", color: "purple" },
-  { id: 6, name: "Team offsite photos.zip", category: "Media", type: "ZIP", size: "186 MB", updated: "Sep 18, 2024", color: "blue" },
-  { id: 7, name: "Campaign copy.docx", category: "Marketing", type: "DOC", size: "824 KB", updated: "Sep 15, 2024", color: "blue" },
-  { id: 8, name: "User research notes.pdf", category: "Research", type: "PDF", size: "2.3 MB", updated: "Sep 12, 2024", color: "red" },
-];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes;
+  let unit = -1;
+  do { value /= 1024; unit += 1; } while (value >= 1024 && unit < units.length - 1);
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`;
+}
+
+function fileType(url: string) {
+  const extension = url.split("?")[0].split(".").pop();
+  return extension ? extension.toUpperCase().slice(0, 4) : "FILE";
+}
+
+function fileColor(type: string) {
+  if (["PDF", "TXT"].includes(type)) return "red";
+  if (["FIG", "SVG", "PSD"].includes(type)) return "orange";
+  if (["XLS", "CSV"].includes(type)) return "green";
+  if (["MP4", "MOV", "MP3"].includes(type)) return "purple";
+  return "blue";
+}
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -29,10 +44,48 @@ export default function Home() {
   const [active, setActive] = useState("All files");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [fileItems, setFileItems] = useState<FileItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<FileItem | null>(null);
   const [toast, setToast] = useState("");
   const [showUpload, setShowUpload] = useState(false);
-  const filtered = useMemo(() => files.filter(file => (active === "All files" || file.category === active || (active === "Favorites" && file.favorite)) && file.name.toLowerCase().includes(query.toLowerCase())), [active, query]);
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        const filesResponse = await fetch(`${API_BASE_URL}/files`);
+        if (!filesResponse.ok) throw new Error(`Files API returned ${filesResponse.status}`);
+        const apiFiles: FileResponse[] = await filesResponse.json();
+        let categories: CategoryResponse[] = [];
+        try {
+          const categoriesResponse = await fetch(`${API_BASE_URL}/file-categories`);
+          if (categoriesResponse.ok) categories = await categoriesResponse.json();
+        } catch {
+          // Category labels are optional; file loading should still succeed.
+        }
+        const categoryNames = new Map(categories.map(category => [category.id, category.name]));
+        setFileItems(apiFiles.map(file => {
+          const name = file.url.split("?")[0].split("/").pop() || file.url;
+          const type = fileType(file.url);
+          return {
+            id: file.id,
+            name,
+            url: file.url,
+            category: categoryNames.get(file.category_id) ?? `Category ${file.category_id}`,
+            type,
+            size: formatSize(file.size),
+            updated: "Recently added",
+            color: fileColor(type),
+          };
+        }));
+      } catch {
+        setToast(`Could not connect to the file API at ${API_BASE_URL}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void loadFiles();
+  }, []);
+  const filtered = useMemo(() => fileItems.filter(file => (active === "All files" || file.category === active || (active === "Favorites" && file.favorite)) && file.name.toLowerCase().includes(query.toLowerCase())), [active, fileItems, query]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
   const nav = [{ icon: "grid", label: "All files", count: "128" }, { icon: "clock", label: "Recent", count: "" }, { icon: "star", label: "Favorites", count: "12" }, { icon: "trash", label: "Trash", count: "3" }];
   const cats = [{ name: "Design", count: 42, color: "orange" }, { name: "Marketing", count: 26, color: "purple" }, { name: "Finance", count: 18, color: "green" }, { name: "Media", count: 31, color: "blue" }];
@@ -47,8 +100,8 @@ export default function Home() {
         <div className="stats"><div><span className="stat-icon blue-bg"><Icon name="folder"/></span><span><small>Total files</small><strong>128 <i>+12%</i></strong></span></div><div><span className="stat-icon purple-bg"><Icon name="upload"/></span><span><small>Storage used</small><strong>6.8 GB <i>+4.2%</i></strong></span></div><div><span className="stat-icon orange-bg"><Icon name="clock"/></span><span><small>Added this month</small><strong>24 <i>+18%</i></strong></span></div><div><span className="stat-icon green-bg"><Icon name="star"/></span><span><small>Favorites</small><strong>12</strong></span></div></div>
         <div className="toolbar"><div><h2>{active === "All files" ? "Recent files" : `${active} files`}</h2><span>{filtered.length} items</span></div><div className="toolbar-actions"><select aria-label="Sort files"><option>Last modified</option><option>Name</option><option>Size</option></select><div className="view-toggle"><button className={view === "grid" ? "on" : ""} onClick={() => setView("grid")}><Icon name="grid" size={16}/></button><button className={view === "list" ? "on" : ""} onClick={() => setView("list")}><Icon name="list" size={17}/></button></div></div></div>
         <div className={`file-area ${view}`}>
-          {filtered.map(file => <button className="file-card" key={file.id} onClick={() => setSelected(file)}><div className={`file-preview ${file.color}`}><span className="file-extension">{file.type}</span><span className="preview-lines"><i/><i/><i/></span>{file.favorite && <span className="favorite"><Icon name="star" size={14}/></span>}</div><div className="file-meta"><strong>{file.name}</strong><span>{file.category}<b>•</b>{file.size}<b>•</b>{file.updated}</span></div><span className="card-more"><Icon name="more" size={19}/></span></button>)}
-          <button className="add-card" onClick={() => setShowUpload(true)}><span><Icon name="plus" size={22}/></span><strong>Add new file</strong><small>Upload from your device</small></button>
+          {isLoading ? <div className="empty-state"><strong>Loading files...</strong><small>Fetching files from the backend.</small></div> : filtered.map(file => <button className="file-card" key={file.id} onClick={() => setSelected(file)}><div className={`file-preview ${file.color}`}><span className="file-extension">{file.type}</span><span className="preview-lines"><i/><i/><i/></span>{file.favorite && <span className="favorite"><Icon name="star" size={14}/></span>}</div><div className="file-meta"><strong>{file.name}</strong><span>{file.category}<b>•</b>{file.size}<b>•</b>{file.updated}</span></div><span className="card-more"><Icon name="more" size={19}/></span></button>)}
+          {!isLoading && <button className="add-card" onClick={() => setShowUpload(true)}><span><Icon name="plus" size={22}/></span><strong>Add new file</strong><small>Upload from your device</small></button>}
         </div>
       </div>
     </section>
