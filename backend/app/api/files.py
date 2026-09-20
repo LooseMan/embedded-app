@@ -10,8 +10,6 @@ from app.api.schemas.files import (
     FileCreate,
     FileResponse,
     FileSetCreate,
-    FileSetRelCreate,
-    FileSetRelResponse,
     FileSetResponse,
     FileSetUpdate,
     FileUpdate,
@@ -176,51 +174,56 @@ async def delete_file_set(file_set_id: int, db: DatabaseSession) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post(
-    "/file-set-relations",
-    response_model=FileSetRelResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_file_set_relation(
-    request: FileSetRelCreate, db: DatabaseSession
-) -> FileSetRelResponse:
-    return await file_repository.create_file_set_relation(
-        db, file_set_id=request.file_set_id, file_id=request.file_id
-    )
-
-
-@router.get("/file-set-relations", response_model=list[FileSetRelResponse])
-async def list_file_set_relations(db: DatabaseSession) -> list[FileSetRelResponse]:
-    return await file_repository.list_file_set_relations(db)
-
-
-@router.get(
-    "/file-set-relations/{file_set_id}/{file_id}",
-    response_model=FileSetRelResponse,
-)
-async def get_file_set_relation(
-    file_set_id: int, file_id: int, db: DatabaseSession
-) -> FileSetRelResponse:
-    relation = await file_repository.get_file_set_relation(db, file_set_id, file_id)
-    if relation is None:
+@router.get("/file-sets/{file_set_id}/files", response_model=list[FileResponse])
+async def list_files_in_file_set(
+    file_set_id: int, db: DatabaseSession
+) -> list[FileResponse]:
+    file_set = await file_repository.get_file_set(db, file_set_id)
+    if file_set is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="File set relation not found",
+            detail="File set not found",
         )
-    return relation
+    return await file_service.list_files_in_file_set(db, file_set_id)
 
 
 @router.delete(
-    "/file-set-relations/{file_set_id}/{file_id}",
+    "/file-sets/{file_set_id}/files/{file_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_file_set_relation(
+async def detach_file_from_file_set(
     file_set_id: int, file_id: int, db: DatabaseSession
 ) -> Response:
-    deleted = await file_repository.delete_file_set_relation(db, file_set_id, file_id)
-    if not deleted:
+    file_set = await file_repository.get_file_set(db, file_set_id)
+    file = await file_repository.get_file(db, file_id)
+    if file_set is None or file is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="File set relation not found",
+            detail="File set or file not found",
         )
+    deleted = await file_service.detach_file_from_file_set(
+        db, file_set_id, file_id
+    )
+    if not deleted:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/file-sets/{file_set_id}/files/{file_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def attach_file_to_file_set(
+    file_set_id: int, file_id: int, db: DatabaseSession
+) -> Response:
+    file_set = await file_repository.get_file_set(db, file_set_id)
+    file = await file_repository.get_file(db, file_id)
+    if file_set is None or file is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File set or file not found",
+        )
+    await file_service.attach_file_to_file_set(
+        db, file_set_id=file_set_id, file_id=file_id
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

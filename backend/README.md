@@ -64,12 +64,13 @@ APIとPostgreSQLをまとめて停止する場合は、次を実行します。�
 
 ## File API
 
-`FileCategory`、`File`、`FileSet`は、一覧・詳細取得・作成・更新・削除を提供します。
-`FileSetRel`は複合主キー（`file_set_id`、`file_id`）の関連テーブルのため、一覧・詳細取得・作成・削除を提供します。
+`FileCategory`、`File`、`FileSet`は、一覧・詳細取得・作成・更新・削除を提供します。`FileSetRel`はDB内部の関連テーブルとして保持し、APIではFileSet配下のファイル操作として扱います。
 
 | リソース | エンドポイント |
 | --- | --- |
 | FileCategory | `/file-categories` |
 | File | `/files` |
 | FileSet | `/file-sets` |
-| FileSetRel | `/file-set-relations` |
+| FileSetのファイル一覧 | `/file-sets/{file_set_id}/files` |
+| FileSetへのファイル追加 | `PUT /file-sets/{file_set_id}/files/{file_id}` |
+| FileSetからのファイル削除 | `DELETE /file-sets/{file_set_id}/files/{file_id}` |

@@ -46,14 +46,16 @@ cd backend
 
 ### File API
 
-`FileCategory`、`File`、`FileSet`は一覧・詳細取得・作成・更新・削除、`FileSetRel`は複合主キーのため一覧・詳細取得・作成・削除を提供します。
+`FileCategory`、`File`、`FileSet`は一覧・詳細取得・作成・更新・削除を提供します。`FileSetRel`はDB内部の関連テーブルとして保持し、APIではFileSet配下のファイル操作として扱います。
 
 | リソース | エンドポイント |
 | --- | --- |
 | FileCategory | `/file-categories` |
 | File | `/files` |
 | FileSet | `/file-sets` |
-| FileSetRel | `/file-set-relations` |
+| FileSetのファイル一覧 | `/file-sets/{file_set_id}/files` |
+| FileSetへのファイル追加 | `PUT /file-sets/{file_set_id}/files/{file_id}` |
+| FileSetからのファイル削除 | `DELETE /file-sets/{file_set_id}/files/{file_id}` |
 
 ## VS Code設定
 

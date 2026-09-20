@@ -54,3 +54,21 @@ async def update_file_set(
     return await file_repository.update_file_set(
         db, file_set_id, name=request.name
     )
+
+
+async def list_files_in_file_set(db: AsyncSession, file_set_id: int):
+    return await file_repository.list_files_in_file_set(db, file_set_id)
+
+
+async def attach_file_to_file_set(
+    db: AsyncSession, *, file_set_id: int, file_id: int
+):
+    return await file_repository.attach_file_to_file_set(
+        db, file_set_id=file_set_id, file_id=file_id
+    )
+
+
+async def detach_file_from_file_set(
+    db: AsyncSession, file_set_id: int, file_id: int
+):
+    return await file_repository.delete_file_set_relation(db, file_set_id, file_id)

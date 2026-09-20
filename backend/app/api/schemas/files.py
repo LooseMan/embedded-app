@@ -17,7 +17,6 @@ class FileCategoryResponse(BaseModel):
     id: int
     name: str
 
-
 class FileCreate(BaseModel):
     category_id: int
     url: str
@@ -52,15 +51,3 @@ class FileSetResponse(BaseModel):
 
     id: int
     name: str
-
-
-class FileSetRelCreate(BaseModel):
-    file_set_id: int
-    file_id: int
-
-
-class FileSetRelResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    file_set_id: int
-    file_id: int

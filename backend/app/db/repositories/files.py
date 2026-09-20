@@ -133,6 +133,18 @@ async def delete_file_set(db: AsyncSession, file_set_id: int) -> bool:
     return True
 
 
+async def list_files_in_file_set(
+    db: AsyncSession, file_set_id: int
+) -> list[File]:
+    stmt = (
+        select(File)
+        .join(FileSetRel, FileSetRel.file_id == File.id)
+        .where(FileSetRel.file_set_id == file_set_id)
+        .order_by(File.id)
+    )
+    return list((await db.scalars(stmt)).all())
+
+
 async def list_file_set_relations(db: AsyncSession) -> list[FileSetRel]:
     return list(
         (
@@ -159,6 +171,17 @@ async def create_file_set_relation(
     await db.commit()
     await db.refresh(relation)
     return relation
+
+
+async def attach_file_to_file_set(
+    db: AsyncSession, *, file_set_id: int, file_id: int
+) -> bool:
+    relation = await get_file_set_relation(db, file_set_id, file_id)
+    if relation is not None:
+        return False
+    db.add(FileSetRel(file_set_id=file_set_id, file_id=file_id))
+    await db.commit()
+    return True
 
 
 async def delete_file_set_relation(
