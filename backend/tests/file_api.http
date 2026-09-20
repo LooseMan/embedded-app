@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:8000
+@categoryName = REST Client test category
+@fileUrl = https://example.com/files/rest-client-test.txt
+@fileSize = 128
+@fileSetName = REST Client test file set
+
+### FileCategoryを追加
+# @name createFileCategory
+POST {{baseUrl}}/file-categories
+Content-Type: application/json
+
+{
+  "name": "{{categoryName}}"
+}
+
+### Fileを追加
+# @name createFile
+POST {{baseUrl}}/files
+Content-Type: application/json
+
+{
+  "category_id": {{createFileCategory.response.body.$.id}},
+  "url": "{{fileUrl}}",
+  "size": {{fileSize}}
+}
+
+### FileSetを追加
+# @name createFileSet
+POST {{baseUrl}}/file-sets
+Content-Type: application/json
+
+{
+  "name": "{{fileSetName}}"
+}
+
+### FileSetにFileを追加
+PUT {{baseUrl}}/file-sets/{{createFileSet.response.body.$.id}}/files/{{createFile.response.body.$.id}}
+
