@@ -13,10 +13,13 @@ pip install -r requirements.txt
 ```text
 app/
 ├── api/                    # FastAPI の router と API 入出力
-│   ├── routes.py
-│   └── schemas.py
+│   ├── routes.py           # routerの集約
+│   ├── health.py
+│   ├── files.py
+│   └── schemas/            # 機能別の入出力スキーマ
+│       └── files.py
 ├── services/               # ユースケース・業務処理
-│   └── calculation.py
+│   └── files.py
 ├── db/                     # DB 接続、ORM モデル、Repository
 │   ├── base.py
 │   ├── session.py
@@ -42,3 +45,15 @@ fastapi dev
 | -------------------- | ----------- | ------------------ |
 | **Pydantic Model**   | `BaseModel` | APIの入力・出力（JSON）    |
 | **SQLAlchemy Model** | `Base`      | データベースのテーブル定義（ORM） |
+
+## File API
+
+`FileCategory`、`File`、`FileSet`は、一覧・詳細取得・作成・更新・削除を提供します。
+`FileSetRel`は複合主キー（`file_set_id`、`file_id`）の関連テーブルのため、一覧・詳細取得・作成・削除を提供します。
+
+| リソース | エンドポイント |
+| --- | --- |
+| FileCategory | `/file-categories` |
+| File | `/files` |
+| FileSet | `/file-sets` |
+| FileSetRel | `/file-set-relations` |
