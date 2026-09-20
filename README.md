@@ -57,6 +57,8 @@ cd backend
 | FileSetへのファイル追加 | `PUT /file-sets/{file_set_id}/files/{file_id}` |
 | FileSetからのファイル削除 | `DELETE /file-sets/{file_set_id}/files/{file_id}` |
 
+フロントエンドを `http://localhost:3000` で起動する開発構成に合わせ、APIは `http://localhost:8000` からのCORSリクエストを許可します。追加のフロントエンドオリジンを許可する場合は、APIコンテナ起動時に `FRONTEND_ORIGINS` をカンマ区切りで指定します。
+
 ## VS Code設定
 
 ### プロジェクト設定
