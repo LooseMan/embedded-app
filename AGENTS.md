@@ -9,12 +9,16 @@
 - `frontend/`: TypeScript、Next.js
 - `docs/`: 設計資料、開発マニュアル
 - `tests/`: テストとテスト手順
+- `backend/app/api/`: ヘルスチェックとFile系API
+- `backend/app/db/repositories/`: DB永続化処理
 
 ## Change rules
 
 - 作業前に対象ファイルと関連実装を確認する。
 - 既存の未コミット変更を上書き・破棄しない。
 - 依頼範囲外の変更を追加しない。
+- セットアップや運用スクリプトは、同じ操作を繰り返しても安全な冪等性を基本とする。
+- 既存リソースを再利用し、データを削除・破棄する処理は明示的な操作として分離する。
 - 設定、依存関係、運用方法を変更したら、関連ドキュメントも更新する。
 - 秘密情報、環境固有のパス、生成物をコミット対象にしない。
 
@@ -39,6 +43,17 @@
 - VS Codeの推奨拡張は `.vscode/extensions.json` で管理する。
 - VS Code拡張のバージョンは固定しない。更新を停止する場合は、各ユーザーのアプリケーション設定で行う。
 - プロジェクト共通のVS Code設定は `.vscode/settings.json` で管理する。
+- DockerでDBなど永続化すべきデータは名前付きボリュームで管理し、ホストOS固有の保存パスを設定に書かない。
+- DockerのDBイメージはタグを固定し、`latest`相当の無指定タグに依存しない。
+- 開発用ソースコードは、変更を即時反映するため必要に応じてバインドマウントする。
+- 開発用コンテナは `backend/launch_container.sh start` で起動し、`stop` で停止する。
+- DBスキーマの変更後は、Alembicでmigrationを適用する。
+
+## Commit messages
+
+- コミットメッセージはConventional Commits形式（`type: summary`）で記述する。
+- Agent定義やSkill定義に関係しないMarkdownファイルの変更は `docs:` として扱う。
+- Agent定義やSkill定義の変更は、内容に応じた専用のtypeまたは `chore:` を使う。
 
 ## Validation and handoff
 
