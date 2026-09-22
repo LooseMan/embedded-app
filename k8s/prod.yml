@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: embedded-app
+spec:
+  containers:
+    - name: postgres
+      image: postgres:17
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: POSTGRES_USER
+          value: user
+        - name: POSTGRES_DB
+          value: dbname
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: embedded-app-db
+              key: password
+      readinessProbe:
+        exec:
+          # 以下の記述だとシェル経由で環境変数が展開されず、PSQL側の認証を通せないため、シェル経由で実行する
+          # command: [pg_isready, -U, user, -d, dbname]
+          command:
+            - /bin/sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+      volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+    - name: my-fastapi
+      image: my-fastapi:prod
+      # ローカルイメージを使う開発環境では、存在するイメージを優先する。
+      # レジストリから取得する場合は、利用環境に合わせて変更する。
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 8000
+          hostPort: 8000
+      env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: embedded-app-db
+              key: database-url
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: 8000
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8000
+        initialDelaySeconds: 30
+        periodSeconds: 10
+  volumes:
+    - name: postgres-data
+      persistentVolumeClaim:
+        claimName: postgres-data
