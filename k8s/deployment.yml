@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+  labels:
+    component: database
+spec:
+  clusterIP: None
+  selector:
+    component: database
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-db
+  labels:
+    component: database
+spec:
+  serviceName: postgres-db
+  replicas: 1
+  selector:
+    matchLabels:
+      component: database
+  template:
+    metadata:
+      labels:
+        component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_USER
+              value: user
+            - name: POSTGRES_DB
+              value: dbname
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              # 以下の記述だとシェル経由で環境変数が展開されず、PSQL側の認証を通せないため、シェル経由で実行する
+              # command: [pg_isready, -U, user, -d, dbname]
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  labels:
+    component: backend-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: backend-api
+  template:
+    metadata:
+      labels:
+        component: backend-api
+    spec:
+      initContainers:
+        - name: wait-for-database
+          image: postgres:17
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_USER
+              value: user
+            - name: POSTGRES_DB
+              value: dbname
+          command:
+            - /bin/sh
+            - -c
+            - until pg_isready -h postgres-db -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 2; done
+      containers:
+        - name: api
+          image: my-fastapi:prod
+          # ローカルイメージを使う開発環境では、存在するイメージを優先する。
+          # レジストリから取得する場合は、利用環境に合わせて変更する。
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: database-url
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api-svc
+  labels:
+    component: backend-api
+spec:
+  selector:
+    component: backend-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      nodePort: 30080
+  type: NodePort
