@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type FileItem = { id: number; name: string; url: string; category: string; type: string; size: string; updated: string; color: string; favorite?: boolean };
+type FileItem = { id: number; name: string; url: string; categoryId: number; category: string; type: string; size: string; updated: string; color: string; favorite?: boolean };
 type FileResponse = { id: number; category_id: number; url: string; size: number };
 type CategoryResponse = { id: number; name: string };
 
@@ -45,6 +45,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<FileItem | null>(null);
   const [toast, setToast] = useState("");
@@ -58,7 +59,10 @@ export default function Home() {
         let categories: CategoryResponse[] = [];
         try {
           const categoriesResponse = await fetch(`${API_BASE_URL}/file-categories`);
-          if (categoriesResponse.ok) categories = await categoriesResponse.json();
+          if (categoriesResponse.ok) {
+            categories = await categoriesResponse.json();
+            setCategories(categories);
+          }
         } catch {
           // Category labels are optional; file loading should still succeed.
         }
@@ -70,6 +74,7 @@ export default function Home() {
             id: file.id,
             name,
             url: file.url,
+            categoryId: file.category_id,
             category: categoryNames.get(file.category_id) ?? `Category ${file.category_id}`,
             type,
             size: formatSize(file.size),
@@ -88,7 +93,12 @@ export default function Home() {
   const filtered = useMemo(() => fileItems.filter(file => (active === "All files" || file.category === active || (active === "Favorites" && file.favorite)) && file.name.toLowerCase().includes(query.toLowerCase())), [active, fileItems, query]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
   const nav = [{ icon: "grid", label: "All files", count: "128" }, { icon: "clock", label: "Recent", count: "" }, { icon: "star", label: "Favorites", count: "12" }, { icon: "trash", label: "Trash", count: "3" }];
-  const cats = [{ name: "Design", count: 42, color: "orange" }, { name: "Marketing", count: 26, color: "purple" }, { name: "Finance", count: 18, color: "green" }, { name: "Media", count: 31, color: "blue" }];
+  const folderColors = ["orange", "purple", "green", "blue"];
+  const cats = useMemo(() => categories.map((category, index) => ({
+    ...category,
+    count: fileItems.filter(file => file.categoryId === category.id).length,
+    color: folderColors[index % folderColors.length],
+  })), [categories, fileItems]);
   return <main className="app-shell">
     <aside className="sidebar"><div className="brand"><span className="brand-mark">V</span><span>vault</span></div><div className="workspace"><div className="avatar">AS</div><div><strong>Acme Studio</strong><small>Personal workspace</small></div><span className="workspace-chevron">⌄</span></div>
       <nav className="nav-list">{nav.map(item => <button className={`nav-item ${active === item.label ? "active" : ""}`} key={item.label} onClick={() => setActive(item.label)}><Icon name={item.icon}/><span>{item.label}</span>{item.count && <em>{item.count}</em>}</button>)}</nav>
