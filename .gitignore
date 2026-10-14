@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# for Node.js projects
+
+# Ignore node_modules and Next.js build output
+node_modules/
+.next/
