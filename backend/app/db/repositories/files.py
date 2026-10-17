@@ -90,6 +90,7 @@ async def delete_file(db: AsyncSession, file_id: int) -> bool:
     file = await get_file(db, file_id)
     if file is None:
         return False
+    await db.execute(delete(FileSetRel).where(FileSetRel.file_id == file_id))
     await db.delete(file)
     await db.commit()
     return True

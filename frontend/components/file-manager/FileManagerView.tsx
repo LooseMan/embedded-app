@@ -2,7 +2,7 @@ import { Icon } from "./Icon";
 import { FileDetailsModal, UploadModal } from "./FileModals";
 import { FileGrid } from "./FileGrid";
 import { Sidebar } from "./Sidebar";
-import type { CategoryResponse, FileItem, FileSetItem, FileSetResponse } from "./types";
+import type { CategoryResponse, FileEditValues, FileItem, FileSetItem, FileSetResponse } from "./types";
 
 type Props = {
   active: string;
@@ -26,13 +26,16 @@ type Props = {
   setShowUpload: (value: boolean) => void;
   notify: (message: string) => void;
   toast: string;
+  onUpload: (files: File[], categoryId: number, fileSetId: number | null) => Promise<void>;
+  onUpdate: (file: FileItem, values: FileEditValues) => Promise<void>;
+  onDelete: (file: FileItem) => Promise<void>;
 };
 
 export function FileManagerView({
   active, setActive, query, setQuery, view, setView, filtered, categories,
   fileSets, selectedFileSet, activeFileSetId, setActiveFileSetId, activeCategoryId,
   setActiveCategoryId, isLoading, selected, setSelected, showUpload, setShowUpload,
-  notify, toast,
+  notify, toast, onUpload, onUpdate, onDelete,
 }: Props) {
   return <main className="app-shell">
     <Sidebar active={active} setActive={setActive} fileSets={fileSets} selectedFileSet={selectedFileSet} activeFileSetId={activeFileSetId} setActiveFileSetId={setActiveFileSetId} notify={notify} />
@@ -43,8 +46,8 @@ export function FileManagerView({
         <FileGrid view={view} filtered={filtered} isLoading={isLoading} setSelected={setSelected} onAddFile={() => setShowUpload(true)} />
       </div>
     </section>
-    {selected && <FileDetailsModal file={selected} setFile={setSelected} notify={notify} />}
-    {showUpload && <UploadModal setOpen={setShowUpload} notify={notify} />}
+    {selected && <FileDetailsModal file={selected} categories={categories} setFile={setSelected} notify={notify} onUpdate={onUpdate} onDelete={onDelete} />}
+    {showUpload && <UploadModal categories={categories} activeFileSetId={activeFileSetId} setOpen={setShowUpload} notify={notify} onUpload={onUpload} />}
     {toast && <div className="toast">{toast}</div>}
   </main>;
 }

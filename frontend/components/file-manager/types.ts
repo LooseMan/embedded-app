@@ -12,6 +12,7 @@ export type FileItem = {
 };
 
 export type FileResponse = { id: number; category_id: number; url: string; size: number };
+export type FileEditValues = { categoryId: number; url: string; size: number };
 export type CategoryResponse = { id: number; name: string };
 export type FileSetResponse = { id: number; name: string };
 export type FileSetItem = FileSetResponse & { color: string };

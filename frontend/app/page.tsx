@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FileManagerView } from "../components/file-manager/FileManagerView";
-import type { CategoryResponse, FileItem, FileResponse, FileSetItem, FileSetResponse } from "../components/file-manager/types";
+import type { CategoryResponse, FileEditValues, FileItem, FileResponse, FileSetItem, FileSetResponse } from "../components/file-manager/types";
 import { API_BASE_URL, mapFiles } from "../components/file-manager/utils";
 
 export default function Home() {
@@ -19,6 +19,42 @@ export default function Home() {
   const [selected, setSelected] = useState<FileItem | null>(null);
   const [toast, setToast] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+
+  const refreshFiles = async () => {
+    const response = await fetch(`${API_BASE_URL}/files`);
+    if (!response.ok) throw new Error("Could not refresh the file list");
+    const mappedFiles = mapFiles(await response.json() as FileResponse[], categories);
+    setAllFileItems(mappedFiles);
+    setFileItems(mappedFiles);
+  };
+
+  const onUpload = async (files: File[], categoryId: number, fileSetId: number | null) => {
+    for (const file of files) {
+      const response = await fetch(`${API_BASE_URL}/files`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category_id: categoryId, url: file.name, size: file.size }) });
+      if (!response.ok) throw new Error(`Could not add ${file.name}`);
+      const created = await response.json() as FileResponse;
+      if (fileSetId !== null) {
+        const attachResponse = await fetch(`${API_BASE_URL}/file-sets/${fileSetId}/files/${created.id}`, { method: "PUT" });
+        if (!attachResponse.ok) throw new Error(`Could not add ${file.name} to the selected file set`);
+      }
+    }
+    await refreshFiles();
+  };
+
+  const onUpdate = async (file: FileItem, values: FileEditValues) => {
+    const response = await fetch(`${API_BASE_URL}/files/${file.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category_id: values.categoryId, url: values.url, size: values.size }) });
+    if (!response.ok) throw new Error("Could not update the file");
+    await refreshFiles();
+  };
+
+  const onDelete = async (file: FileItem) => {
+    const response = await fetch(`${API_BASE_URL}/files/${file.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || `Could not delete the file (${response.status})`);
+    }
+    await refreshFiles();
+  };
 
   useEffect(() => {
     const loadFiles = async () => {
@@ -98,5 +134,8 @@ export default function Home() {
     setShowUpload={setShowUpload}
     notify={notify}
     toast={toast}
+    onUpload={onUpload}
+    onUpdate={onUpdate}
+    onDelete={onDelete}
   />;
 }
