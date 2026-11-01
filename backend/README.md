@@ -29,6 +29,7 @@ app/
 │   ├── session.py
 │   ├── models.py
 │   └── repositories/
+│       └── files.py
 ├── main.py                 # FastAPI の組み立て
 └── stream_logger.py        # ロギング基盤
 ```
@@ -74,3 +75,35 @@ APIとPostgreSQLをまとめて停止する場合は、次を実行します。�
 | FileSetのファイル一覧 | `/file-sets/{file_set_id}/files` |
 | FileSetへのファイル追加 | `PUT /file-sets/{file_set_id}/files/{file_id}` |
 | FileSetからのファイル削除 | `DELETE /file-sets/{file_set_id}/files/{file_id}` |
+
+## APIテスト
+
+リポジトリのルートで次を実行すると、`backend/tests` のAPIテストを詳細表示で実行できます。
+
+```sh
+pytest
+```
+
+`backend/tests/conftest.py` の設定により、実行したテスト名と各テストの結果が表示されます。
+APIテストはフェーズ別に次のフォルダへ配置します。
+
+- `backend/tests/unit`: 提出前にローカルで実行し、DB・外部マイクロサービスを使わずAPIルートとServiceを単体検証します。
+- `backend/tests/integ`: Push時のGitLab CIで起動済みバックエンドへHTTP接続し、テスト専用PostgreSQLコンテナを使ってRepositoryを含む業務フローの期待値を比較します。本番DB・外部マイクロサービスの接続先は使用しません。
+- `backend/tests/e2e`: 将来、フロントエンドを含むE2Eテストを配置する予定です。
+
+提出前の単体テストはリポジトリルートで次を実行します。
+
+```sh
+pytest backend/tests/unit
+```
+
+単体テストではRepositoryをモックし、APIの委譲とServiceの引数変換・業務ルールを検証します。結合テストはPush時に `.gitlab-ci.yml` から実行され、CIではバックエンドを起動してHTTP経由で接続し、テスト用PostgreSQLへAlembicを適用してから、`tests/integ`だけを実行します。
+ローカルで実行する場合は、先にバックエンドとテスト用DBを起動し、必要に応じて`BACKEND_BASE_URL`で接続先を指定します。
+
+```sh
+./launch_container.sh start
+BACKEND_BASE_URL=http://localhost:8000 pytest tests/integ
+```
+
+File APIの結合テストでは、リソースの作成・取得・更新・関連付け・解除・削除を
+まとめて確認します。結合テストにはPostgreSQLが必要です。

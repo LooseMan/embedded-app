@@ -59,6 +59,30 @@ cd backend
 
 フロントエンドを `http://localhost:3000` で起動する開発構成に合わせ、APIは `http://localhost:8000` からのCORSリクエストを許可します。追加のフロントエンドオリジンを許可する場合は、APIコンテナ起動時に `FRONTEND_ORIGINS` をカンマ区切りで指定します。
 
+### APIテストのフェーズ
+
+- `backend/tests/unit`: 提出前にローカルで実行する、DB・外部マイクロサービス不要のAPI／Service単体テスト
+- `backend/tests/integ`: Push時のGitLab CIで起動済みバックエンドへHTTP接続し、テスト用PostgreSQLコンテナを使って実行する、Repositoryを含む業務フローの結合テスト。外部マイクロサービスは接続しない
+- `backend/tests/e2e`: 将来のフロントエンドを含むE2Eテスト用
+
+提出前の確認は次で実行します。
+
+```sh
+pytest backend/tests/unit
+```
+
+単体テストではRepository、DB、外部マイクロサービスをモックまたはFakeに置き換え、APIの委譲とServiceの引数変換・業務ルールを検証します。
+
+Push時の結合テストは `.gitlab-ci.yml` がバックエンドを起動し、`BACKEND_BASE_URL` 経由でHTTP接続します。CI専用のPostgreSQLサービスへAlembicを適用してから自動実行し、本番DBや外部マイクロサービスの接続情報は使用しません。
+ローカルで結合テストを実行する場合は、先にバックエンドを起動します。
+
+```sh
+cd backend
+./launch_container.sh start
+cd ..
+BACKEND_BASE_URL=http://localhost:8000 pytest backend/tests/integ
+```
+
 ## VS Code設定
 
 ### プロジェクト設定
